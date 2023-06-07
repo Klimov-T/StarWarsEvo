@@ -77,4 +77,11 @@ class PhysObject(object):
     def __str__(self):
         return('pos = (' + str(self.position) + '); ' + 'vel = (' + str(self.velocity) + '); ' + 'acc = (' + str(self.acceleration) + '); ' + 'aPos = (' + str(self.anglePos) + '); ' + 'aVel = (' + str(self.angleVel) + '); ' + 'aAcc = (' + str(self.angleAcc) + ');')
 
-
+class Map(object):
+    def __init__(self):
+        self.objects = []
+    def addObject(self, obj):
+        self.objects.append(obj)
+    def dT(self, dt):
+        for i in self.objects:
+            i.dT(dt)
