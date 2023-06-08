@@ -36,6 +36,7 @@ class Vector(object):
 
 class PhysObject(object):
     def __init__(self):
+        self.prevPosition = Vector()
         self.position = Vector()
         self.velocity = Vector()
         self.acceleration = Vector()
@@ -44,6 +45,7 @@ class PhysObject(object):
         self.angleAcc = 0
         self.colisionR = 0
     def setPos(self, pos = Vector(), angle = 0):
+        self.prevPosition = pos
         self.position = pos
         self.anglePos = angle
     def setVel(self, vel = Vector(), angle = 0):
@@ -55,18 +57,46 @@ class PhysObject(object):
     def setR(self, R = 0):
         self.colisionR = R
     def dPos(self, dPosition = Vector(), dA = 0):
+        self.prevPosition += dPosition
         self.position += dPosition
         self.anglePos += dA
     def dT(self, dt = 0):
         self.velocity += self.acceleration * dt
+        self.prevPosition = self.position
         self.position += self.velocity * dt
         self.angleVel += self.angleAcc * dt
         self.anglePos += self.angleVel * dt
     def collision(self, other):
-        if (abs(other.position - self.position) < (self.colisionR + other.colisionR)):
-            return True
+        a = 1.0 * ((self.position.Xpos - self.prevPosition.Xpos) - (other.position.Xpos - other.prevPosition.Xpos))
+        b = 1.0 * (self.prevPosition.Xpos - other.prevPosition.Xpos)
+        c = 1.0 * ((self.position.Ypos - self.prevPosition.Ypos) - (other.position.Ypos - other.prevPosition.Ypos))
+        d = 1.0 * (self.prevPosition.Ypos - other.prevPosition.Ypos)
+        e = a**2 + c**2
+        if e == 0:
+            if (abs(other.position - self.position) < (self.colisionR + other.colisionR)):
+                return True
+            else:
+                return False
         else:
-            return False
+            t = -(a*b+c*d) / e
+            if t < 0:
+                if (abs(other.prevPosition - self.prevPosition) < (self.colisionR + other.colisionR)):
+                    return True
+                else:
+                    return False
+            if t > 1:
+                if (abs(other.position - self.position) < (self.colisionR + other.colisionR)):
+                    return True
+                else:
+                    return False
+            if t >= 0 and t <= 1:
+                pos1 = self.prevPosition + (self.position-self.prevPosition) * t
+                pos2 = other.prevPosition + (other.position-other.prevPosition) * t
+                if (abs(pos1 - pos2) < (self.colisionR + other.colisionR)):
+                    return True
+                else:
+                    return False
+        
     def __str__(self):
         return('pos = (' + str(self.position) + '); ' + 'vel = (' + str(self.velocity) + '); ' + 'acc = (' + str(self.acceleration) + '); ' + 'aPos = (' + str(self.anglePos) + '); ' + 'aVel = (' + str(self.angleVel) + '); ' + 'aAcc = (' + str(self.angleAcc) + ');')
     def draw(self, window, pos0 = Vector(0,0), scale = 1):
@@ -76,6 +106,7 @@ class PhysObject(object):
 
 SCREENX = 1920
 SCREENY = 1080
+screenScale = 1.0
 
 class Ball(PhysObject):
     def __init__(self):
@@ -109,6 +140,12 @@ class Map(object):
     def key(self, keys):
         for i in self.objects:
             i.key(keys)
+    def collision(self):
+        l = len(self.objects)
+        for i in range(l):
+            for j in range(l-i-1):
+                if self.objects[i].collision(self.objects[i+j+1]):
+                    print('collision: '+str(i)+' '+str(i+j+1))
     
 
 if __name__ == '__main__':
@@ -145,6 +182,7 @@ def main():
     init_window()
     init_map()
     clk = pygame.time.get_ticks()
+    global screenScale
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -155,9 +193,11 @@ def main():
         clk = pygame.time.get_ticks()
         window.fill((0, 0, 0, 0))
         gameMap.key(keys)
+        if (keys[pygame.K_MINUS]): screenScale *= 0.9999**(1.0*dt*10)
+        if (keys[pygame.K_EQUALS]): screenScale *= 1.0001**(1.0*dt*10)
+        gameMap.collision()
         gameMap.dT(1.0*dt*0.001)
-        gameMap.draw(window, gameMap.objects[0].position, 0.25)
+        gameMap.draw(window, gameMap.objects[0].position, screenScale)
         pygame.display.flip()
-        #clock.tick_busy_loop(30)
  
 if __name__ == '__main__': main()
