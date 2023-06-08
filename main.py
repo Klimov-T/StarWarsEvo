@@ -69,13 +69,31 @@ class PhysObject(object):
             return False
     def __str__(self):
         return('pos = (' + str(self.position) + '); ' + 'vel = (' + str(self.velocity) + '); ' + 'acc = (' + str(self.acceleration) + '); ' + 'aPos = (' + str(self.anglePos) + '); ' + 'aVel = (' + str(self.angleVel) + '); ' + 'aAcc = (' + str(self.angleAcc) + ');')
+    def draw(self, window, pos0 = Vector(0,0), scale = 1):
+        pass
+    def key(self, keys):
+        pass
+
+SCREENX = 1920
+SCREENY = 1080
 
 class Ball(PhysObject):
     def __init__(self):
         super().__init__()
         self.color = pygame.Color(255, 255, 255, 255)
-    def draw(self, window, pos0 = Vector(0, 0)):
-        pygame.draw.circle(window, self.color, (self.position.Xpos-pos0.Xpos, self.position.Ypos-pos0.Ypos), self.colisionR, width = 0)
+    def draw(self, window, pos0 = Vector(0, 0), scale = 1):
+        pygame.draw.circle(window, self.color, (SCREENX/2 + (self.position.Xpos-pos0.Xpos) * scale, SCREENY/2 + (self.position.Ypos-pos0.Ypos) * scale), self.colisionR * scale, width = 0)
+
+class ActiveBall(Ball):
+    def __init__(self):
+        super().__init__()
+    def key(self, keys):
+        ax = ay = 0
+        if (keys[pygame.K_w]): ay -= 1000
+        if (keys[pygame.K_a]): ax -= 1000
+        if (keys[pygame.K_s]): ay += 1000
+        if (keys[pygame.K_d]): ax += 1000
+        self.acceleration.setXY(ax, ay)
 
 class Map(object):
     def __init__(self):
@@ -85,23 +103,28 @@ class Map(object):
     def dT(self, dt):
         for i in self.objects:
             i.dT(dt)
-    def draw(self, window, pos0 = Vector(0, 0)):
+    def draw(self, window, pos0 = Vector(0, 0), scale = 1):
         for i in self.objects:
-            try:
-                i.draw(window, pos0)
-            except Warning as e:
-                print(e)
+            i.draw(window, pos0, scale)
+    def key(self, keys):
+        for i in self.objects:
+            i.key(keys)
     
 
 if __name__ == '__main__':
     pygame.init()
-    window = pygame.display.set_mode((1920, 1080))
+    window = pygame.display.set_mode((SCREENX, SCREENY))
+    clock = pygame.time.Clock()
     gameMap = Map()
 
 def init_window():
     pygame.display.set_caption('Star Wars')
  
 def init_map():
+    obj = ActiveBall()
+    obj.setPos(Vector(0, 0))
+    obj.setR(20)
+    gameMap.addObject(obj)
     obj = Ball()
     obj.setPos(Vector(50, 50))
     obj.setAcc(Vector(1, 1))
@@ -127,12 +150,14 @@ def main():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+        keys = pygame.key.get_pressed()
         dt = pygame.time.get_ticks() - clk
         clk = pygame.time.get_ticks()
         window.fill((0, 0, 0, 0))
+        gameMap.key(keys)
         gameMap.dT(1.0*dt*0.001)
-        gameMap.draw(window, gameMap.objects[1].position - Vector(960, 540))
+        gameMap.draw(window, gameMap.objects[0].position, 0.25)
         pygame.display.flip()
-        pygame.time.delay(50)
+        #clock.tick_busy_loop(30)
  
 if __name__ == '__main__': main()
