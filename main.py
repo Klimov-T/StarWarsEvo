@@ -74,8 +74,8 @@ class Ball(PhysObject):
     def __init__(self):
         super().__init__()
         self.color = pygame.Color(255, 255, 255, 255)
-    def draw(self, window):
-        pygame.draw.circle(window, self.color, (self.position.Xpos, self.position.Ypos), self.colisionR, width = 0)
+    def draw(self, window, pos0 = Vector(0, 0)):
+        pygame.draw.circle(window, self.color, (self.position.Xpos-pos0.Xpos, self.position.Ypos-pos0.Ypos), self.colisionR, width = 0)
 
 class Map(object):
     def __init__(self):
@@ -85,17 +85,18 @@ class Map(object):
     def dT(self, dt):
         for i in self.objects:
             i.dT(dt)
-    def draw(self, window):
+    def draw(self, window, pos0 = Vector(0, 0)):
         for i in self.objects:
             try:
-                i.draw(window)
+                i.draw(window, pos0)
             except Warning as e:
                 print(e)
+    
 
-
-pygame.init()
-window = pygame.display.set_mode((1920, 1080))
-gameMap = Map()
+if __name__ == '__main__':
+    pygame.init()
+    window = pygame.display.set_mode((1920, 1080))
+    gameMap = Map()
 
 def init_window():
     pygame.display.set_caption('Star Wars')
@@ -128,10 +129,10 @@ def main():
                 sys.exit()
         dt = pygame.time.get_ticks() - clk
         clk = pygame.time.get_ticks()
-        gameMap.dT(0.01)
-        print(gameMap.objects[1])
-        gameMap.draw(window)
+        window.fill((0, 0, 0, 0))
+        gameMap.dT(1.0*dt*0.001)
+        gameMap.draw(window, gameMap.objects[1].position - Vector(960, 540))
         pygame.display.flip()
-        pygame.time.delay(0)
+        pygame.time.delay(50)
  
 if __name__ == '__main__': main()
