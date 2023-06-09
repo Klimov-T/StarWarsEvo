@@ -7,6 +7,10 @@ import sys
 
 
 
+SCREENX = 1920
+SCREENY = 1080
+screenScale = 1.0
+FPVObject = 0
 
 class Vector(object):
     def __init__(self, x = 0, y = 0):
@@ -32,8 +36,7 @@ class Vector(object):
     def rot(self, angle):
         ansX = cos(angle) * self.Xpos - sin(angle) * self.Ypos
         ansY = sin(angle) * self.Xpos + cos(angle) * self.Ypos
-        self.Xpos = ansX
-        self.Ypos = ansY
+        return Vector(ansX, ansY)
 
 class PhysObject(object):
     def __init__(self):
@@ -104,23 +107,23 @@ class PhysObject(object):
     def __str__(self):
         return('pos = (' + str(self.position) + '); ' + 'vel = (' + str(self.velocity) + '); ' + 'acc = (' + str(self.acceleration) + '); ' + 'aPos = (' + str(self.anglePos) + '); ' + 'aVel = (' + str(self.angleVel) + '); ' + 'aAcc = (' + str(self.angleAcc) + ');')
     def draw(self, window, FPVObj, scale = 1):
-        pass
+        drawV0 = Vector(SCREENX/2, SCREENY/2)
+        drawM = Vector((self.position.Xpos-FPVObj.position.Xpos) * scale, (self.position.Ypos-FPVObj.position.Ypos) * scale)
+        drawPos = drawV0 + drawM.rot(-FPVObj.anglePos)
+        drawAngle = self.anglePos - FPVObj.anglePos
+        return drawPos, drawAngle
     def getNewObjects(self):
         return self.newObjects
     def clearNewObjects(self):
         self.newObjects = []
-
-SCREENX = 1920
-SCREENY = 1080
-screenScale = 1.0
-FPVObject = 0
 
 class Ball(PhysObject):
     def __init__(self):
         super().__init__()
         self.color = pygame.Color(255, 255, 255, 255)
     def draw(self, window, FPVObj = PhysObject(), scale = 1):
-        pygame.draw.circle(window, self.color, (SCREENX/2 + (self.position.Xpos-FPVObj.position.Xpos) * scale, SCREENY/2 + (self.position.Ypos-FPVObj.position.Ypos) * scale), self.collisionR * scale, width = 0)
+        drawPos, drawAngle = super().draw(window, FPVObj, scale)
+        pygame.draw.circle(window, self.color, (drawPos.Xpos, drawPos.Ypos), self.collisionR * scale, width = 0)
     def collisionAction(self, other):
         self.exist = False
 
@@ -157,7 +160,8 @@ class Bullet(PhysObject):
             else:
                 self.exist = False
     def draw(self, window, FPVObj, scale=1):
-        pygame.draw.circle(window, self.color, (SCREENX/2 + (self.position.Xpos-FPVObj.position.Xpos) * scale, SCREENY/2 + (self.position.Ypos-FPVObj.position.Ypos) * scale), self.visionR * scale, width = 0)
+        drawPos, drawAngle = super().draw(window, FPVObj, scale)
+        pygame.draw.circle(window, self.color, (drawPos.Xpos, drawPos.Ypos), self.visionR * scale, width = 0)
     def dT(self, dt, keys):
         super().dT(dt, keys)
         self.lifetime -= dt
@@ -216,6 +220,7 @@ def init_map():
     obj = Gun()
     obj.setPos(Vector(0, 0))
     obj.setR(20)
+    obj.angleAcc = 0.1
     FPVObject = obj
     gameMap.addObject(obj)
     obj = Ball()
