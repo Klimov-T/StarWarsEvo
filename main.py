@@ -86,10 +86,11 @@ class PhysObject(object):
         return('pos = (' + str(self.position) + '); ' + 'vel = (' + str(self.velocity) + '); ' + 'acc = (' + str(self.acceleration) + '); ' + 'aPos = (' + str(self.anglePos) + '); ' + 'aVel = (' + str(self.angleVel) + '); ' + 'aAcc = (' + str(self.angleAcc) + ');')
     def draw(self, window, FPVObj, scale = 1):
         drawV0 = pygame.Vector2(SCREENX/2, SCREENY/2)
-        drawM0 = (self.position - FPVObj.position) * scale
-        drawPos = drawV0 + drawM0.rotate_rad(-FPVObj.anglePos)
+        Rel = self.position - FPVObj.position
+        drawRel = (Rel * scale).rotate_rad(-FPVObj.anglePos)
+        drawPos = drawV0 + drawRel
         drawAngle = self.anglePos - FPVObj.anglePos
-        return drawPos, drawAngle
+        return drawPos, drawAngle, drawRel, Rel, drawV0
     def getNewObjects(self):
         return self.newObjects
     def clearNewObjects(self):
@@ -100,8 +101,15 @@ class Ball(PhysObject):
         super().__init__()
         self.color = pygame.Color(255, 255, 255, 255)
     def draw(self, window, FPVObj = PhysObject(), scale = 1):
-        drawPos, drawAngle = super().draw(window, FPVObj, scale)
+        drawPos, drawAngle, drawRel, Rel, drawV0 = super().draw(window, FPVObj, scale)
         pygame.draw.circle(window, self.color, drawPos, self.collisionR * scale, width = 0)
+        R = drawRel.magnitude()
+        if R > 500:
+            drawRel.scale_to_length(500)
+            pygame.draw.line(window, self.color, drawV0+drawRel, drawV0+drawRel*0.95, 1)
+            fnt = pygame.font.Font(None, 20)
+            txt = fnt.render(str(int(Rel.magnitude())),False, self.color)
+            window.blit(txt, drawV0+drawRel*0.9)
     def collisionAction(self, other):
         self.exist = False
 
@@ -138,7 +146,7 @@ class Bullet(PhysObject):
             else:
                 self.exist = False
     def draw(self, window, FPVObj, scale=1):
-        drawPos, drawAngle = super().draw(window, FPVObj, scale)
+        drawPos, drawAngle, drawRel, Rel, drawV0 = super().draw(window, FPVObj, scale)
         pygame.draw.circle(window, self.color, drawPos, self.visionR * scale, width = 0)
     def dT(self, dt, keys):
         super().dT(dt, keys)
@@ -153,7 +161,7 @@ class Gun(ActiveBall):
         if (keys[pygame.K_SPACE]): self.newObjects.append(Bullet(self.position, self.velocity+pygame.Vector2(0, -1000).rotate_rad(self.anglePos), self))
     def collisionAction(self, other):
         pass
-    
+
 class Map(object):
     def __init__(self):
         self.objects = []
