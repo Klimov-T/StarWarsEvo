@@ -1,0 +1,27 @@
+================================================================================================================================
+class Vector(object):
+    def __init__(self, x = 0, y = 0):
+        self.Xpos = x
+        self.Ypos = y
+    def setXY(self, x = 0, y = 0):
+        self.Xpos = x
+        self.Ypos = y
+    def __add__(self, other):
+        return Vector(self.Xpos + other.Xpos, self.Ypos + other.Ypos)
+    def __sub__(self, other):
+        return Vector(self.Xpos - other.Xpos, self.Ypos - other.Ypos)
+    def __mul__(self, other):
+        return Vector(self.Xpos * other, self.Ypos * other)
+    def __pow__(self, other):
+        return (self.Xpos*other.Xpos + self.Ypos*other.Ypos)
+    def __truediv__(self, other):
+        return Vector(self.Xpos / other, self.Ypos / other)
+    def __abs__(self):
+        return ((self.Xpos**2 + self.Ypos**2)**0.5)
+    def __str__(self):
+        return('x = ' + str(self.Xpos) + '; y = ' + str(self.Ypos) + ';')
+    def rot(self, angle):
+        ansX = cos(angle) * self.Xpos - sin(angle) * self.Ypos
+        ansY = sin(angle) * self.Xpos + cos(angle) * self.Ypos
+        return Vector(ansX, ansY)
+================================================================================================================================

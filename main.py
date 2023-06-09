@@ -11,58 +11,35 @@ SCREENX = 1920
 SCREENY = 1080
 screenScale = 1.0
 FPVObject = 0
-
-class Vector(object):
-    def __init__(self, x = 0, y = 0):
-        self.Xpos = x
-        self.Ypos = y
-    def setXY(self, x = 0, y = 0):
-        self.Xpos = x
-        self.Ypos = y
-    def __add__(self, other):
-        return Vector(self.Xpos + other.Xpos, self.Ypos + other.Ypos)
-    def __sub__(self, other):
-        return Vector(self.Xpos - other.Xpos, self.Ypos - other.Ypos)
-    def __mul__(self, other):
-        return Vector(self.Xpos * other, self.Ypos * other)
-    def __pow__(self, other):
-        return (self.Xpos*other.Xpos + self.Ypos*other.Ypos)
-    def __truediv__(self, other):
-        return Vector(self.Xpos / other, self.Ypos / other)
-    def __abs__(self):
-        return ((self.Xpos**2 + self.Ypos**2)**0.5)
-    def __str__(self):
-        return('x = ' + str(self.Xpos) + '; y = ' + str(self.Ypos) + ';')
-    def rot(self, angle):
-        ansX = cos(angle) * self.Xpos - sin(angle) * self.Ypos
-        ansY = sin(angle) * self.Xpos + cos(angle) * self.Ypos
-        return Vector(ansX, ansY)
+gameMap = -1    # -1 means further initialisation
+window = -1
+clock = -1
 
 class PhysObject(object):
     def __init__(self):
         self.exist = True
         self.newObjects = []
-        self.prevPosition = Vector()
-        self.position = Vector()
-        self.velocity = Vector()
-        self.acceleration = Vector()
+        self.prevPosition = pygame.Vector2()
+        self.position = pygame.Vector2()
+        self.velocity = pygame.Vector2()
+        self.acceleration = pygame.Vector2()
         self.anglePos = 0
         self.angleVel = 0
         self.angleAcc = 0
         self.collisionR = 0
-    def setPos(self, pos = Vector(), angle = 0):
-        self.prevPosition = pos
-        self.position = pos
+    def setPos(self, pos = pygame.Vector2(), angle = 0):
+        self.prevPosition = pygame.Vector2(pos)
+        self.position = pygame.Vector2(pos)
         self.anglePos = angle
-    def setVel(self, vel = Vector(), angle = 0):
-        self.velocity = vel
+    def setVel(self, vel = pygame.Vector2(), angle = 0):
+        self.velocity = pygame.Vector2(vel)
         self.angleVel = angle
-    def setAcc(self, acc = Vector(), angle = 0):
-        self.acceleration = acc
+    def setAcc(self, acc = pygame.Vector2(), angle = 0):
+        self.acceleration = pygame.Vector2(acc)
         self.angleAcc = angle
     def setR(self, R = 0):
         self.collisionR = R
-    def dPos(self, dPosition = Vector(), dA = 0):
+    def dPos(self, dPosition = pygame.Vector2(), dA = 0):
         self.prevPosition += dPosition
         self.position += dPosition
         self.anglePos += dA
@@ -73,32 +50,33 @@ class PhysObject(object):
         self.angleVel += self.angleAcc * dt
         self.anglePos += self.angleVel * dt
     def collision(self, other):
-        a = 1.0 * ((self.position.Xpos - self.prevPosition.Xpos) - (other.position.Xpos - other.prevPosition.Xpos))
-        b = 1.0 * (self.prevPosition.Xpos - other.prevPosition.Xpos)
-        c = 1.0 * ((self.position.Ypos - self.prevPosition.Ypos) - (other.position.Ypos - other.prevPosition.Ypos))
-        d = 1.0 * (self.prevPosition.Ypos - other.prevPosition.Ypos)
+        a = 1.0 * ((self.position.x - self.prevPosition.x) - (other.position.x - other.prevPosition.x))
+        b = 1.0 * (self.prevPosition.x - other.prevPosition.x)
+        c = 1.0 * ((self.position.y - self.prevPosition.y) - (other.position.y - other.prevPosition.y))
+        d = 1.0 * (self.prevPosition.y - other.prevPosition.y)
         e = a**2 + c**2
+        Rr = self.collisionR + other.collisionR
         if e == 0:
-            if (abs(other.position - self.position) < (self.collisionR + other.collisionR)):
+            if ((other.position - self.position).magnitude() < Rr):
                 return True
             else:
                 return False
         else:
             t = -(a*b+c*d) / e
             if t < 0:
-                if (abs(other.prevPosition - self.prevPosition) < (self.collisionR + other.collisionR)):
+                if ((other.prevPosition - self.prevPosition).magnitude() < Rr):
                     return True
                 else:
                     return False
             if t > 1:
-                if (abs(other.position - self.position) < (self.collisionR + other.collisionR)):
+                if ((other.position - self.position).magnitude() < Rr):
                     return True
                 else:
                     return False
             if t >= 0 and t <= 1:
                 pos1 = self.prevPosition + (self.position-self.prevPosition) * t
                 pos2 = other.prevPosition + (other.position-other.prevPosition) * t
-                if (abs(pos1 - pos2) < (self.collisionR + other.collisionR)):
+                if ((pos1 - pos2).magnitude() < Rr):
                     return True
                 else:
                     return False
@@ -107,9 +85,9 @@ class PhysObject(object):
     def __str__(self):
         return('pos = (' + str(self.position) + '); ' + 'vel = (' + str(self.velocity) + '); ' + 'acc = (' + str(self.acceleration) + '); ' + 'aPos = (' + str(self.anglePos) + '); ' + 'aVel = (' + str(self.angleVel) + '); ' + 'aAcc = (' + str(self.angleAcc) + ');')
     def draw(self, window, FPVObj, scale = 1):
-        drawV0 = Vector(SCREENX/2, SCREENY/2)
-        drawM = Vector((self.position.Xpos-FPVObj.position.Xpos) * scale, (self.position.Ypos-FPVObj.position.Ypos) * scale)
-        drawPos = drawV0 + drawM.rot(-FPVObj.anglePos)
+        drawV0 = pygame.Vector2(SCREENX/2, SCREENY/2)
+        drawM0 = (self.position - FPVObj.position) * scale
+        drawPos = drawV0 + drawM0.rotate_rad(-FPVObj.anglePos)
         drawAngle = self.anglePos - FPVObj.anglePos
         return drawPos, drawAngle
     def getNewObjects(self):
@@ -123,7 +101,7 @@ class Ball(PhysObject):
         self.color = pygame.Color(255, 255, 255, 255)
     def draw(self, window, FPVObj = PhysObject(), scale = 1):
         drawPos, drawAngle = super().draw(window, FPVObj, scale)
-        pygame.draw.circle(window, self.color, (drawPos.Xpos, drawPos.Ypos), self.collisionR * scale, width = 0)
+        pygame.draw.circle(window, self.color, drawPos, self.collisionR * scale, width = 0)
     def collisionAction(self, other):
         self.exist = False
 
@@ -136,19 +114,19 @@ class ActiveBall(Ball):
         if (keys[pygame.K_a]): ax -= 1000
         if (keys[pygame.K_s]): ay += 1000
         if (keys[pygame.K_d]): ax += 1000
-        self.acceleration.setXY(ax, ay)
+        self.acceleration = pygame.Vector2(ax, ay).rotate_rad(self.anglePos)
         super().dT(dt, keys)
     def collisionAction(self, other):
         self.collisionR += 5
 
 class Bullet(PhysObject):
-    def __init__(self, pos = Vector(0, 0), vel = Vector(0, 0), owner = any):
+    def __init__(self, pos = pygame.Vector2(), vel = pygame.Vector2(), owner = any):
         super().__init__()
-        self.lifetime = 5.0
+        self.lifetime = 2.0
         self.visionR = 10
         self.collisionR = 5
-        self.position = pos
-        self.velocity = vel
+        self.position = pygame.Vector2(pos)
+        self.velocity = pygame.Vector2(vel)
         self.damage = 1
         self.owner = owner
         self.color = pygame.Color(random.randint(150, 255), random.randint(150, 255), random.randint(150, 255), 255)
@@ -161,7 +139,7 @@ class Bullet(PhysObject):
                 self.exist = False
     def draw(self, window, FPVObj, scale=1):
         drawPos, drawAngle = super().draw(window, FPVObj, scale)
-        pygame.draw.circle(window, self.color, (drawPos.Xpos, drawPos.Ypos), self.visionR * scale, width = 0)
+        pygame.draw.circle(window, self.color, drawPos, self.visionR * scale, width = 0)
     def dT(self, dt, keys):
         super().dT(dt, keys)
         self.lifetime -= dt
@@ -172,10 +150,10 @@ class Gun(ActiveBall):
         super().__init__()
     def dT(self, dt, keys):
         super().dT(dt, keys)
-        if (keys[pygame.K_SPACE]): self.newObjects.append(Bullet(self.position, self.velocity+Vector(0, -1000), self))
+        if (keys[pygame.K_SPACE]): self.newObjects.append(Bullet(self.position, self.velocity+pygame.Vector2(0, -1000).rotate_rad(self.anglePos), self))
     def collisionAction(self, other):
         pass
-
+    
 class Map(object):
     def __init__(self):
         self.objects = []
@@ -205,37 +183,36 @@ class Map(object):
                 self.objects.append(j)
             i.clearNewObjects()
     
-
-if __name__ == '__main__':
+def init_window():
+    global window, clock
     pygame.init()
     window = pygame.display.set_mode((SCREENX, SCREENY))
     clock = pygame.time.Clock()
-    gameMap = Map()
-
-def init_window():
     pygame.display.set_caption('Star Wars')
+    pygame.mouse.set_visible(False)
+    pygame.event.set_grab(True)
  
 def init_map():
-    global FPVObject
+    global FPVObject, gameMap
+    gameMap = Map()
     obj = Gun()
-    obj.setPos(Vector(0, 0))
+    obj.setPos(pygame.Vector2(0, 0))
     obj.setR(20)
-    obj.angleAcc = 0.1
     FPVObject = obj
     gameMap.addObject(obj)
     obj = Ball()
-    obj.setPos(Vector(50, 50))
-    obj.setAcc(Vector(1, 1))
+    obj.setPos(pygame.Vector2(50, 50))
+    obj.setAcc(pygame.Vector2(1, 1))
     obj.setR(10)
     gameMap.addObject(obj)
     obj = Ball()
-    obj.setPos(Vector(150, 150))
-    obj.setAcc(Vector(0, 1))
+    obj.setPos(pygame.Vector2(150, 150))
+    obj.setAcc(pygame.Vector2(0, 1))
     obj.setR(10)
     gameMap.addObject(obj)
     obj = Ball()
-    obj.setPos(Vector(250, 250))
-    obj.setAcc(Vector(1, 0))
+    obj.setPos(pygame.Vector2(250, 250))
+    obj.setAcc(pygame.Vector2(1, 0))
     obj.setR(10)
     gameMap.addObject(obj)
 
@@ -249,6 +226,13 @@ def main():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 4:
+                    screenScale *= 1.25
+                if event.button == 5:
+                    screenScale *= 0.8
+            if event.type == pygame.MOUSEMOTION:
+                FPVObject.anglePos += 1.0*event.rel[0]*0.002
         keys = pygame.key.get_pressed()
         if keys[pygame.K_ESCAPE]:
             pygame.quit()
@@ -256,8 +240,6 @@ def main():
         dt = pygame.time.get_ticks() - clk
         clk = pygame.time.get_ticks()
         window.fill((0, 0, 0, 0))
-        if (keys[pygame.K_MINUS]): screenScale *= 0.9999**(1.0*dt*10)
-        if (keys[pygame.K_EQUALS]): screenScale *= 1.0001**(1.0*dt*10)
         gameMap.dT(1.0*dt*0.001, keys)
         gameMap.collision()
         gameMap.addNewObjects()
@@ -265,4 +247,9 @@ def main():
         gameMap.draw(window, FPVObject, screenScale)
         pygame.display.flip()
  
-if __name__ == '__main__': main()
+if __name__ == '__main__': 
+    try:
+        main()
+    finally:
+        pygame.quit()
+        sys.exit()
