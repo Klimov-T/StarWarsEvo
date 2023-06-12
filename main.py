@@ -1,4 +1,4 @@
-from math import cos, sin
+from math import cos, sin, pi
 import random
 import pygame
 import sys
@@ -9,11 +9,27 @@ import sys
 
 SCREENX = 1920
 SCREENY = 1080
+displayCenter = pygame.Vector2(SCREENX/2, SCREENY/2)
+angleConverter = 180/pi
 screenScale = 1.0
 FPVObject = 0
 gameMap = -1    # -1 means further initialisation
 window = -1
 clock = -1
+
+class Texture(object):
+    def __init__(self, filename, basicScale):
+        self.image = pygame.image.load(filename)
+        self.basicScale = basicScale
+    def draw(self, window, drawPos, scale, angle):
+        drawImg = pygame.transform.rotozoom(self.image, -angleConverter * angle, self.basicScale * scale)
+        rect = drawImg.get_rect(center = drawPos)
+        window.blit(drawImg, rect)
+
+class Textures(object):
+    def __init__(self):
+        self.starship = Texture('starship-v-1.bmp', 0.1)
+textures = Textures()
 
 class PhysObject(object):
     def __init__(self):
@@ -37,7 +53,7 @@ class PhysObject(object):
     def setAcc(self, acc = pygame.Vector2(), angle = 0):
         self.acceleration = pygame.Vector2(acc)
         self.angleAcc = angle
-    def setR(self, R = 0):
+    def setCollisionR(self, R = 0):
         self.collisionR = R
     def dPos(self, dPosition = pygame.Vector2(), dA = 0):
         self.prevPosition += dPosition
@@ -50,10 +66,10 @@ class PhysObject(object):
         self.angleVel += self.angleAcc * dt
         self.anglePos += self.angleVel * dt
     def collision(self, other):
-        a = 1.0 * ((self.position.x - self.prevPosition.x) - (other.position.x - other.prevPosition.x))
-        b = 1.0 * (self.prevPosition.x - other.prevPosition.x)
-        c = 1.0 * ((self.position.y - self.prevPosition.y) - (other.position.y - other.prevPosition.y))
-        d = 1.0 * (self.prevPosition.y - other.prevPosition.y)
+        a = (self.position.x - self.prevPosition.x) - (other.position.x - other.prevPosition.x)
+        b = self.prevPosition.x - other.prevPosition.x
+        c = (self.position.y - self.prevPosition.y) - (other.position.y - other.prevPosition.y)
+        d = self.prevPosition.y - other.prevPosition.y
         e = a**2 + c**2
         Rr = self.collisionR + other.collisionR
         if e == 0:
@@ -85,12 +101,11 @@ class PhysObject(object):
     def __str__(self):
         return('pos = (' + str(self.position) + '); ' + 'vel = (' + str(self.velocity) + '); ' + 'acc = (' + str(self.acceleration) + '); ' + 'aPos = (' + str(self.anglePos) + '); ' + 'aVel = (' + str(self.angleVel) + '); ' + 'aAcc = (' + str(self.angleAcc) + ');')
     def draw(self, window, FPVObj, scale = 1):
-        drawV0 = pygame.Vector2(SCREENX/2, SCREENY/2)
         Rel = self.position - FPVObj.position
         drawRel = (Rel * scale).rotate_rad(-FPVObj.anglePos)
-        drawPos = drawV0 + drawRel
+        drawPos = displayCenter + drawRel
         drawAngle = self.anglePos - FPVObj.anglePos
-        return drawPos, drawAngle, drawRel, Rel, drawV0
+        return drawPos, drawAngle, drawRel, Rel, displayCenter
     def getNewObjects(self):
         return self.newObjects
     def clearNewObjects(self):
@@ -102,9 +117,8 @@ class Ball(PhysObject):
         self.color = pygame.Color(255, 255, 255, 255)
     def draw(self, window, FPVObj = PhysObject(), scale = 1):
         drawPos, drawAngle, drawRel, Rel, drawV0 = super().draw(window, FPVObj, scale)
-        pygame.draw.circle(window, self.color, drawPos, self.collisionR * scale, width = 0)
-        R = drawRel.magnitude()
-        if R > 500:
+        textures.starship.draw(window, drawPos, scale*0.5, drawAngle)
+        if drawRel.magnitude() > 500:
             drawRel.scale_to_length(500)
             pygame.draw.line(window, self.color, drawV0+drawRel, drawV0+drawRel*0.95, 1)
             fnt = pygame.font.Font(None, 20)
@@ -161,6 +175,12 @@ class Gun(ActiveBall):
         if (keys[pygame.K_SPACE]): self.newObjects.append(Bullet(self.position, self.velocity+pygame.Vector2(0, -1000).rotate_rad(self.anglePos), self))
     def collisionAction(self, other):
         pass
+    def draw(self, window, FPVObj=PhysObject(), scale=1):
+        Rel = self.position - FPVObj.position
+        drawRel = (Rel * scale).rotate_rad(-FPVObj.anglePos)
+        drawPos = displayCenter + drawRel
+        drawAngle = self.anglePos - FPVObj.anglePos
+        textures.starship.draw(window, drawPos, scale, drawAngle)
 
 class Map(object):
     def __init__(self):
@@ -205,23 +225,23 @@ def init_map():
     gameMap = Map()
     obj = Gun()
     obj.setPos(pygame.Vector2(0, 0))
-    obj.setR(20)
+    obj.setCollisionR(20)
     FPVObject = obj
     gameMap.addObject(obj)
     obj = Ball()
     obj.setPos(pygame.Vector2(50, 50))
     obj.setAcc(pygame.Vector2(1, 1))
-    obj.setR(10)
+    obj.setCollisionR(10)
     gameMap.addObject(obj)
     obj = Ball()
     obj.setPos(pygame.Vector2(150, 150))
     obj.setAcc(pygame.Vector2(0, 1))
-    obj.setR(10)
+    obj.setCollisionR(10)
     gameMap.addObject(obj)
     obj = Ball()
     obj.setPos(pygame.Vector2(250, 250))
     obj.setAcc(pygame.Vector2(1, 0))
-    obj.setR(10)
+    obj.setCollisionR(10)
     gameMap.addObject(obj)
 
 def main():
@@ -240,7 +260,7 @@ def main():
                 if event.button == 5:
                     screenScale *= 0.8
             if event.type == pygame.MOUSEMOTION:
-                FPVObject.anglePos += 1.0*event.rel[0]*0.002
+                FPVObject.anglePos += event.rel[0]*0.002
         keys = pygame.key.get_pressed()
         if keys[pygame.K_ESCAPE]:
             pygame.quit()
@@ -248,11 +268,12 @@ def main():
         dt = pygame.time.get_ticks() - clk
         clk = pygame.time.get_ticks()
         window.fill((0, 0, 0, 0))
-        gameMap.dT(1.0*dt*0.001, keys)
+        gameMap.dT(dt*0.001, keys)
         gameMap.collision()
         gameMap.addNewObjects()
         gameMap.cleanObj()
         gameMap.draw(window, FPVObject, screenScale)
+        textures.starship.draw(window, pygame.Vector2(100, 100), screenScale, FPVObject.anglePos)
         pygame.display.flip()
  
 if __name__ == '__main__': 
