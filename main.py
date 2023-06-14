@@ -17,19 +17,52 @@ gameMap = -1    # -1 means further initialisation
 window = -1
 clock = -1
 
-class Texture(object):
-    def __init__(self, filename, basicScale):
+class TextureGFX(object):
+    def __init__(self, filename):
         self.image = pygame.image.load(filename)
+
+class Texture(object):
+    def __init__(self, source, basicScale):
+        self.source = source
         self.basicScale = basicScale
     def draw(self, window, drawPos, scale, angle):
-        drawImg = pygame.transform.rotozoom(self.image, -angleConverter * angle, self.basicScale * scale)
+        drawImg = pygame.transform.rotozoom(self.source.image, -angleConverter * angle, self.basicScale * scale)
         rect = drawImg.get_rect(center = drawPos)
         window.blit(drawImg, rect)
 
-class Textures(object):
+class AnimationGFX(object):
+    def __init__(self, filenameWithoutBMP, imagesCount):
+        self.images = []
+        self.imagesCount = imagesCount
+        for i in range(imagesCount):
+            self.images.append(pygame.image.load(filenameWithoutBMP+'-'+str(i)+'.bmp'))
+
+class Animation(object):
+    def __init__(self, source, framePeriod, basicScale):
+        self.source = source
+        self.basicScale = basicScale
+        self.currentFrame = 0
+        self.framePeriod = framePeriod
+        self.timer = 0
+    def nextFrame(self):
+        self.currentFrame += 1
+        self.currentFrame = self.currentFrame % self.source.imagesCount
+    def nextFrameByTime(self, dT):
+        self.timer += dT
+        while self.timer >= self.framePeriod:
+            self.timer -= self.framePeriod
+            self.nextFrame()
+    def draw(self, window, drawPos, scale, angle):
+        drawImg = pygame.transform.rotozoom(self.source.images[self.currentFrame], -angleConverter * angle, self.basicScale * scale)
+        rect = drawImg.get_rect(center = drawPos)
+        window.blit(drawImg, rect)
+
+class TexturesGFX(object):
     def __init__(self):
-        self.starship = Texture('starship-v-1.bmp', 0.1)
-textures = Textures()
+        self.starship = TextureGFX('starship-v-1.bmp')
+        self.shield = TextureGFX('shield.bmp')
+        self.bullet = AnimationGFX('energyBullet', 8)
+textures = TexturesGFX()
 
 class PhysObject(object):
     def __init__(self):
@@ -115,9 +148,10 @@ class Ball(PhysObject):
     def __init__(self):
         super().__init__()
         self.color = pygame.Color(255, 255, 255, 255)
+        self.bodyGFX = Texture(textures.starship, 0.05)
     def draw(self, window, FPVObj = PhysObject(), scale = 1):
         drawPos, drawAngle, drawRel, Rel, drawV0 = super().draw(window, FPVObj, scale)
-        textures.starship.draw(window, drawPos, scale*0.5, drawAngle)
+        self.bodyGFX.draw(window, drawPos, scale, drawAngle)
         if drawRel.magnitude() > 500:
             drawRel.scale_to_length(500)
             pygame.draw.line(window, self.color, drawV0+drawRel, drawV0+drawRel*0.95, 1)
@@ -144,7 +178,7 @@ class ActiveBall(Ball):
 class Bullet(PhysObject):
     def __init__(self, pos = pygame.Vector2(), vel = pygame.Vector2(), owner = any):
         super().__init__()
-        self.lifetime = 2.0
+        self.lifetime = 10.0
         self.visionR = 10
         self.collisionR = 5
         self.position = pygame.Vector2(pos)
@@ -152,6 +186,7 @@ class Bullet(PhysObject):
         self.damage = 1
         self.owner = owner
         self.color = pygame.Color(random.randint(150, 255), random.randint(150, 255), random.randint(150, 255), 255)
+        self.GFX = Animation(textures.bullet, 0.125, 0.025)
     def collisionAction(self, other):
         if other != self.owner:
             if type(other) == Bullet:
@@ -161,18 +196,21 @@ class Bullet(PhysObject):
                 self.exist = False
     def draw(self, window, FPVObj, scale=1):
         drawPos, drawAngle, drawRel, Rel, drawV0 = super().draw(window, FPVObj, scale)
-        pygame.draw.circle(window, self.color, drawPos, self.visionR * scale, width = 0)
+        self.GFX.draw(window, drawPos, scale, drawAngle)
     def dT(self, dt, keys):
         super().dT(dt, keys)
+        self.GFX.nextFrameByTime(dt)
         self.lifetime -= dt
         if self.lifetime <= 0: self.exist = False
 
 class Gun(ActiveBall):
     def __init__(self):
         super().__init__()
+        self.bodyGFX = Texture(textures.starship, 0.1)
+        self.shieldGFX = Texture(textures.shield, 0.15)
     def dT(self, dt, keys):
         super().dT(dt, keys)
-        if (keys[pygame.K_SPACE]): self.newObjects.append(Bullet(self.position, self.velocity+pygame.Vector2(0, -1000).rotate_rad(self.anglePos), self))
+        if (keys[pygame.K_SPACE]): self.newObjects.append(Bullet(self.position, self.velocity+pygame.Vector2(0, -10).rotate_rad(self.anglePos), self))
     def collisionAction(self, other):
         pass
     def draw(self, window, FPVObj=PhysObject(), scale=1):
@@ -180,7 +218,8 @@ class Gun(ActiveBall):
         drawRel = (Rel * scale).rotate_rad(-FPVObj.anglePos)
         drawPos = displayCenter + drawRel
         drawAngle = self.anglePos - FPVObj.anglePos
-        textures.starship.draw(window, drawPos, scale, drawAngle)
+        self.bodyGFX.draw(window, drawPos, scale, drawAngle)
+        self.shieldGFX.draw(window, drawPos, scale, drawAngle)
 
 class Map(object):
     def __init__(self):
@@ -273,7 +312,6 @@ def main():
         gameMap.addNewObjects()
         gameMap.cleanObj()
         gameMap.draw(window, FPVObject, screenScale)
-        textures.starship.draw(window, pygame.Vector2(100, 100), screenScale, FPVObject.anglePos)
         pygame.display.flip()
  
 if __name__ == '__main__': 
